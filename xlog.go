@@ -37,6 +37,7 @@ type Logger struct {
 	logger *log.Logger
 }
 
+// NewLogger is similar to log.New(out io.Writer, prefix string, flag int)
 func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	logger := log.New(out, prefix, flag)
 	l := new(Logger)
@@ -46,17 +47,15 @@ func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	return l
 }
 
+// NewLoggerFromFileName will call os.OpenFile by os.O_CREATE|os.O_RDWR|os.O_APPEND
+// and os.ModePerm|os.ModeAppend,then call NewLogger()
 func NewLoggerFromFileName(filename string, prefix string, flag int) *Logger {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, os.ModePerm|os.ModeAppend)
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger := log.New(f, prefix, flag)
-	l := new(Logger)
-	l.prefix = prefix
-	l.flag = flag
-	l.logger = logger
-	return l
+
+	return NewLogger(f, prefix, flag)
 }
 
 func (l Logger) Warn(v ...interface{}) {
