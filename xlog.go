@@ -1,6 +1,6 @@
 // Package log implements a simple logging package. It defines a type, Logger,
 // with methods for formatting output. Logger accessible through helper functions
-// Warn[f|ln], Info[f,ln], Fatal[f|ln], and Panic[f|ln], which are
+// Warn[f|ln], Info[f,ln], Error[f,ln], Fatal[f|ln], and Panic[f|ln], which are
 // easier to use than creating a Logger manually.
 // That logger writes to standard error and prints the date and time
 // of each logged message.
