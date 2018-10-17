@@ -61,4 +61,4 @@ exit status 1
 ```
 ## Doc
 
-xlog:https://godoc.org/xlog
+xlog:https://godoc.org/github.com/gnenux/xlog
