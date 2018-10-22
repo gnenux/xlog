@@ -28,7 +28,8 @@ const (
 )
 
 var (
-	zeroInterface interface{}
+	zeroInterface  interface{}
+	defaultXLogger = NewLogger(os.Stdout, "", DefaultLogFlag)
 )
 
 type Logger struct {
@@ -166,4 +167,64 @@ func (l Logger) Panicln(v ...interface{}) {
 	copy(v[1:], v[0:])
 	v[0] = panicSign
 	l.logger.Panicln(v...)
+}
+
+func Warn(v ...interface{}) {
+	defaultXLogger.Warn(v...)
+}
+
+func Warnf(format string, v ...interface{}) {
+	defaultXLogger.Warnf(format, v...)
+}
+
+func Warnln(v ...interface{}) {
+	defaultXLogger.Warnln(v...)
+}
+
+func Info(v ...interface{}) {
+	defaultXLogger.Info(v...)
+}
+
+func Infof(format string, v ...interface{}) {
+	defaultXLogger.Infof(format, v...)
+}
+
+func Infoln(v ...interface{}) {
+	defaultXLogger.Infoln(v...)
+}
+
+func Error(v ...interface{}) {
+	defaultXLogger.Error(v...)
+}
+
+func Errorf(format string, v ...interface{}) {
+	defaultXLogger.Errorf(format, v...)
+}
+
+func Errorln(v ...interface{}) {
+	defaultXLogger.Errorln(v...)
+}
+
+func Fatal(v ...interface{}) {
+	defaultXLogger.Fatal(v...)
+}
+
+func Fatalf(format string, v ...interface{}) {
+	defaultXLogger.Fatalf(format, v...)
+}
+
+func Fatalln(v ...interface{}) {
+	defaultXLogger.Fatalln(v...)
+}
+
+func Panic(v ...interface{}) {
+	defaultXLogger.Panic(v...)
+}
+
+func Panicf(format string, v ...interface{}) {
+	defaultXLogger.Panicf(format, v...)
+}
+
+func Panicln(v ...interface{}) {
+	defaultXLogger.Panicln(v...)
 }
