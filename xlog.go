@@ -12,6 +12,7 @@
 package xlog
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -29,13 +30,19 @@ const (
 
 var (
 	zeroInterface  interface{}
-	defaultXLogger = NewLogger(os.Stdout, "", DefaultLogFlag)
+	defaultXLogger *Logger
 )
 
+func init() {
+	defaultXLogger = NewLogger(os.Stdout, "", DefaultLogFlag)
+	defaultXLogger.calldepth = 3
+}
+
 type Logger struct {
-	prefix string
-	flag   int
-	logger *log.Logger
+	prefix    string
+	flag      int
+	calldepth int
+	logger    *log.Logger
 }
 
 // NewLogger is similar to log.New(out io.Writer, prefix string, flag int)
@@ -45,6 +52,7 @@ func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	l.prefix = prefix
 	l.flag = flag
 	l.logger = logger
+	l.calldepth = 2
 	return l
 }
 
@@ -63,7 +71,7 @@ func (l Logger) Warn(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = warnSign
-	l.logger.Print(v...)
+	l.logger.Output(l.calldepth, fmt.Sprint(v...))
 }
 
 func (l Logger) Warnf(format string, v ...interface{}) {
@@ -71,21 +79,21 @@ func (l Logger) Warnf(format string, v ...interface{}) {
 	copy(v[1:], v[0:])
 	v[0] = warnSign
 	format = "%s" + format
-	l.logger.Printf(format, v...)
+	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
 }
 
 func (l Logger) Warnln(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = warnSign
-	l.logger.Println(v...)
+	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
 }
 
 func (l Logger) Info(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = infoSign
-	l.logger.Print(v...)
+	l.logger.Output(l.calldepth, fmt.Sprint(v...))
 }
 
 func (l Logger) Infof(format string, v ...interface{}) {
@@ -93,21 +101,21 @@ func (l Logger) Infof(format string, v ...interface{}) {
 	copy(v[1:], v[0:])
 	v[0] = infoSign
 	format = "%s" + format
-	l.logger.Printf(format, v...)
+	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
 }
 
 func (l Logger) Infoln(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = infoSign
-	l.logger.Println(v...)
+	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
 }
 
 func (l Logger) Error(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = errorSign
-	l.logger.Print(v...)
+	l.logger.Output(l.calldepth, fmt.Sprint(v...))
 }
 
 func (l Logger) Errorf(format string, v ...interface{}) {
@@ -115,21 +123,22 @@ func (l Logger) Errorf(format string, v ...interface{}) {
 	copy(v[1:], v[0:])
 	v[0] = errorSign
 	format = "%s" + format
-	l.logger.Printf(format, v...)
+	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
 }
 
 func (l Logger) Errorln(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = errorSign
-	l.logger.Println(v...)
+	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
 }
 
 func (l Logger) Fatal(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = fatalSign
-	l.logger.Fatal(v...)
+	l.logger.Output(l.calldepth, fmt.Sprint(v...))
+	os.Exit(1)
 }
 
 func (l Logger) Fatalf(format string, v ...interface{}) {
@@ -137,21 +146,26 @@ func (l Logger) Fatalf(format string, v ...interface{}) {
 	copy(v[1:], v[0:])
 	v[0] = fatalSign
 	format = "%s" + format
-	l.logger.Fatalf(format, v...)
+	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
+	os.Exit(1)
 }
 
 func (l Logger) Fatalln(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = fatalSign
-	l.logger.Fatalln(v...)
+	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
+	os.Exit(1)
 }
 
 func (l Logger) Panic(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = panicSign
-	l.logger.Panic(v...)
+
+	s := fmt.Sprint(v...)
+	l.logger.Output(l.calldepth, s)
+	panic(s)
 }
 
 func (l Logger) Panicf(format string, v ...interface{}) {
@@ -159,14 +173,18 @@ func (l Logger) Panicf(format string, v ...interface{}) {
 	copy(v[1:], v[0:])
 	v[0] = panicSign
 	format = "%s" + format
-	l.logger.Panicf(format, v...)
+	s := fmt.Sprintf(format, v...)
+	l.logger.Output(l.calldepth, s)
+	panic(s)
 }
 
 func (l Logger) Panicln(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = panicSign
-	l.logger.Panicln(v...)
+	s := fmt.Sprintln(v...)
+	l.logger.Output(l.calldepth, s)
+	panic(s)
 }
 
 func Warn(v ...interface{}) {
