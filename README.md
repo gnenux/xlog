@@ -25,10 +25,10 @@ output:
 xlog.log
 
 ```
-2018/10/16 17:51:26.863411 xlog.go:66: [warn] this is warn
-2018/10/16 17:51:26.863487 xlog.go:88: [info] this is info
-2018/10/16 17:51:26.863494 xlog.go:110: [error] this is error
-2018/10/16 17:51:26.863499 xlog.go:132: [fatal] this is fatal
+2018/10/25 09:59:23.387468 main.go:9: [warn] this is warn
+2018/10/25 09:59:23.387540 main.go:10: [info] this is info
+2018/10/25 09:59:23.387546 main.go:11: [error] this is error
+2018/10/25 09:59:23.387550 main.go:12: [fatal] this is fatal
 
 ```
 
@@ -53,10 +53,10 @@ func main() {
 ```
 output:
 ```
-2018/10/16 17:53:45.024912 xlog.go:66: [warn] this is warn
-2018/10/16 17:53:45.024975 xlog.go:88: [info] this is info
-2018/10/16 17:53:45.024981 xlog.go:110: [error] this is error
-2018/10/16 17:53:45.024989 xlog.go:132: [fatal] this is fatal
+2018/10/25 10:00:15.779688 main.go:11: [warn] this is warn
+2018/10/25 10:00:15.779750 main.go:12: [info] this is info
+2018/10/25 10:00:15.779757 main.go:13: [error] this is error
+2018/10/25 10:00:15.779761 main.go:14: [fatal] this is fatal
 exit status 1
 ```
 ## Doc
