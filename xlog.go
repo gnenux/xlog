@@ -12,6 +12,7 @@
 package xlog
 
 import (
+	"time"
 	"fmt"
 	"io"
 	"log"
@@ -42,6 +43,8 @@ type Logger struct {
 	prefix    string
 	flag      int
 	calldepth int
+	hour int
+	file *os.File
 	logger    *log.Logger
 }
 
@@ -56,25 +59,49 @@ func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	return l
 }
 
+func NewLoggerFromFile(f *os.File, prefix string, flag int) *Logger {
+	logger := log.New(f, prefix, flag)
+	l := new(Logger)
+	l.file = f
+	l.prefix = prefix
+	l.flag = flag
+	l.logger = logger
+	l.calldepth = 2
+	l.hour = time.Now().Hour()
+	return l
+}
+
+func (l *Logger) switchLogFile() {
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		select{
+		case <-ticker.C:
+			//
+		}
+	}
+}
+
+
+
 // NewLoggerFromFileName will call os.OpenFile by os.O_CREATE|os.O_RDWR|os.O_APPEND
-// and os.ModePerm|os.ModeAppend,then call NewLogger()
+// and 0664 then call NewLogger()
 func NewLoggerFromFileName(filename string, prefix string, flag int) *Logger {
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, os.ModePerm|os.ModeAppend)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0664)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return NewLogger(f, prefix, flag)
+	return NewLoggerFromFile(f, prefix, flag)
 }
 
-func (l Logger) Warn(v ...interface{}) {
+func (l *Logger) Warn(v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = warnSign
 	l.logger.Output(l.calldepth, fmt.Sprint(v...))
 }
 
-func (l Logger) Warnf(format string, v ...interface{}) {
+func (l *Logger) Warnf(format string, v ...interface{}) {
 	v = append(v, zeroInterface)
 	copy(v[1:], v[0:])
 	v[0] = warnSign
