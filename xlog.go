@@ -12,11 +12,11 @@
 package xlog
 
 import (
-	"time"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"time"
 )
 
 const (
@@ -43,8 +43,8 @@ type Logger struct {
 	prefix    string
 	flag      int
 	calldepth int
-	hour int
-	file *os.File
+	hour      int
+	file      *os.File
 	logger    *log.Logger
 }
 
@@ -74,14 +74,12 @@ func NewLoggerFromFile(f *os.File, prefix string, flag int) *Logger {
 func (l *Logger) switchLogFile() {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
-		select{
+		select {
 		case <-ticker.C:
 			//
 		}
 	}
 }
-
-
 
 // NewLoggerFromFileName will call os.OpenFile by os.O_CREATE|os.O_RDWR|os.O_APPEND
 // and 0664 then call NewLogger()
@@ -92,6 +90,10 @@ func NewLoggerFromFileName(filename string, prefix string, flag int) *Logger {
 	}
 
 	return NewLoggerFromFile(f, prefix, flag)
+}
+
+func (l *Logger) AddCallDepth(n int) {
+	l.calldepth += n
 }
 
 func (l *Logger) Warn(v ...interface{}) {
