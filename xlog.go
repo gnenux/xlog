@@ -12,26 +12,30 @@
 package xlog
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
 	"time"
 )
 
 const (
 	// DefaultLogFlag = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 	DefaultLogFlag = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
-	warnSign       = "[warn] "
-	infoSign       = "[info] "
-	errorSign      = "[error] "
-	fatalSign      = "[fatal] "
-	panicSign      = "[panic] "
+	levelWarn      = "warn"
+	levelInfo      = "info"
+	levelError     = "error"
+	levelFatal     = "fatal"
+	levelPanic     = "panic"
 )
 
 var (
-	zeroInterface  interface{}
-	defaultXLogger *Logger
+	zeroInterface     interface{}
+	defaultXLogger    *Logger
+	defaultBufferSize = 1024
 )
 
 func init() {
@@ -39,180 +43,151 @@ func init() {
 	defaultXLogger.calldepth = 3
 }
 
+type logContent struct {
+	t      time.Time
+	level  string
+	file   string
+	line   int
+	format string
+	v      []interface{}
+}
+
 type Logger struct {
 	prefix    string
 	flag      int
 	calldepth int
-	hour      int
-	file      *os.File
-	logger    *log.Logger
+	out       io.Writer
+	buffer    chan logContent
+}
+
+// time | level | file | msg
+func (l Logger) format(lc logContent) []byte {
+	buf := bytes.Buffer{}
+	year, month, day := lc.t.Date()
+	hour, min, sec := lc.t.Clock()
+
+	buf.WriteString(strconv.Itoa(year))
+	buf.WriteByte('/')
+	buf.WriteString(strconv.Itoa(int(month)))
+	buf.WriteByte('/')
+	buf.WriteString(strconv.Itoa(day))
+	buf.WriteByte(' ')
+	buf.WriteString(strconv.Itoa(hour))
+	buf.WriteByte(':')
+	buf.WriteString(strconv.Itoa(min))
+	buf.WriteByte(':')
+	buf.WriteString(strconv.Itoa(sec))
+	buf.WriteByte(' ')
+	buf.WriteByte('[')
+	buf.WriteString(lc.level)
+	buf.WriteByte(']')
+	buf.WriteByte(' ')
+	buf.WriteString(lc.file)
+	buf.WriteByte(':')
+	buf.WriteString(strconv.Itoa(lc.line))
+	buf.WriteByte(' ')
+	if lc.format == "" {
+		buf.WriteString(fmt.Sprint(lc.v...))
+	} else {
+		buf.WriteString(fmt.Sprintf(lc.format, lc.v...))
+	}
+
+	return buf.Bytes()
 }
 
 // NewLogger is similar to log.New(out io.Writer, prefix string, flag int)
 func NewLogger(out io.Writer, prefix string, flag int) *Logger {
-	logger := log.New(out, prefix, flag)
 	l := new(Logger)
 	l.prefix = prefix
 	l.flag = flag
-	l.logger = logger
+	l.out = out
 	l.calldepth = 2
+	l.buffer = make(chan logContent, defaultBufferSize)
+
+	go l.write()
 	return l
 }
 
-func NewLoggerFromFile(f *os.File, prefix string, flag int) *Logger {
-	logger := log.New(f, prefix, flag)
-	l := new(Logger)
-	l.file = f
-	l.prefix = prefix
-	l.flag = flag
-	l.logger = logger
-	l.calldepth = 2
-	l.hour = time.Now().Hour()
-	return l
-}
-
-func (l *Logger) switchLogFile() {
-	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			//
-		}
-	}
-}
-
-// NewLoggerFromFileName will call os.OpenFile by os.O_CREATE|os.O_RDWR|os.O_APPEND
-// and 0664 then call NewLogger()
-func NewLoggerFromFileName(filename string, prefix string, flag int) *Logger {
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0664)
+func NewLoggerFromFile(logFile string, prefix string, flag int) *Logger {
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return NewLoggerFromFile(f, prefix, flag)
+	return NewLogger(f, prefix, flag)
+}
+
+func (l *Logger) write() {
+	for {
+		select {
+		case lc := <-l.buffer:
+			logBytes := l.format(lc)
+			l.out.Write(logBytes)
+		}
+	}
 }
 
 func (l *Logger) AddCallDepth(n int) {
 	l.calldepth += n
 }
 
+func (l *Logger) output(level string, format string, v ...interface{}) {
+	t := time.Now()
+	_, file, line, ok := runtime.Caller(l.calldepth)
+	if !ok {
+		file = "???"
+		line = 0
+	}
+	l.buffer <- logContent{
+		t:      t,
+		level:  level,
+		file:   file,
+		line:   line,
+		format: format,
+		v:      v,
+	}
+}
+
 func (l *Logger) Warn(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = warnSign
-	l.logger.Output(l.calldepth, fmt.Sprint(v...))
+	l.Warnf("", v...)
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = warnSign
-	format = "%s" + format
-	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
-}
-
-func (l Logger) Warnln(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = warnSign
-	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
+	l.output(levelWarn, format, v...)
 }
 
 func (l Logger) Info(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = infoSign
-	l.logger.Output(l.calldepth, fmt.Sprint(v...))
+	l.Infof("", v...)
 }
 
 func (l Logger) Infof(format string, v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = infoSign
-	format = "%s" + format
-	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
-}
-
-func (l Logger) Infoln(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = infoSign
-	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
+	l.output(levelInfo, format, v...)
 }
 
 func (l Logger) Error(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = errorSign
-	l.logger.Output(l.calldepth, fmt.Sprint(v...))
+	l.Errorf("", v...)
 }
 
 func (l Logger) Errorf(format string, v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = errorSign
-	format = "%s" + format
-	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
-}
-
-func (l Logger) Errorln(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = errorSign
-	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
+	l.output(levelError, format, v...)
 }
 
 func (l Logger) Fatal(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = fatalSign
-	l.logger.Output(l.calldepth, fmt.Sprint(v...))
-	os.Exit(1)
+	l.Fatalf("", v...)
 }
 
 func (l Logger) Fatalf(format string, v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = fatalSign
-	format = "%s" + format
-	l.logger.Output(l.calldepth, fmt.Sprintf(format, v...))
-	os.Exit(1)
-}
-
-func (l Logger) Fatalln(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = fatalSign
-	l.logger.Output(l.calldepth, fmt.Sprintln(v...))
+	l.output(levelFatal, format, v...)
 	os.Exit(1)
 }
 
 func (l Logger) Panic(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = panicSign
-
-	s := fmt.Sprint(v...)
-	l.logger.Output(l.calldepth, s)
-	panic(s)
+	l.Panicf("", v...)
 }
 
 func (l Logger) Panicf(format string, v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = panicSign
-	format = "%s" + format
+	l.output(levelPanic, format, v...)
 	s := fmt.Sprintf(format, v...)
-	l.logger.Output(l.calldepth, s)
-	panic(s)
-}
-
-func (l Logger) Panicln(v ...interface{}) {
-	v = append(v, zeroInterface)
-	copy(v[1:], v[0:])
-	v[0] = panicSign
-	s := fmt.Sprintln(v...)
-	l.logger.Output(l.calldepth, s)
 	panic(s)
 }
 
@@ -224,20 +199,12 @@ func Warnf(format string, v ...interface{}) {
 	defaultXLogger.Warnf(format, v...)
 }
 
-func Warnln(v ...interface{}) {
-	defaultXLogger.Warnln(v...)
-}
-
 func Info(v ...interface{}) {
 	defaultXLogger.Info(v...)
 }
 
 func Infof(format string, v ...interface{}) {
 	defaultXLogger.Infof(format, v...)
-}
-
-func Infoln(v ...interface{}) {
-	defaultXLogger.Infoln(v...)
 }
 
 func Error(v ...interface{}) {
@@ -248,10 +215,6 @@ func Errorf(format string, v ...interface{}) {
 	defaultXLogger.Errorf(format, v...)
 }
 
-func Errorln(v ...interface{}) {
-	defaultXLogger.Errorln(v...)
-}
-
 func Fatal(v ...interface{}) {
 	defaultXLogger.Fatal(v...)
 }
@@ -260,18 +223,10 @@ func Fatalf(format string, v ...interface{}) {
 	defaultXLogger.Fatalf(format, v...)
 }
 
-func Fatalln(v ...interface{}) {
-	defaultXLogger.Fatalln(v...)
-}
-
 func Panic(v ...interface{}) {
 	defaultXLogger.Panic(v...)
 }
 
 func Panicf(format string, v ...interface{}) {
 	defaultXLogger.Panicf(format, v...)
-}
-
-func Panicln(v ...interface{}) {
-	defaultXLogger.Panicln(v...)
 }
