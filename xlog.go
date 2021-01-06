@@ -142,10 +142,6 @@ func (l *Logger) write() {
 	}
 }
 
-func (l *Logger) AddCallDepth(n int) {
-	l.calldepth += n
-}
-
 func (l *Logger) output(level string, format string, v ...interface{}) {
 	t := time.Now()
 	_, file, line, ok := runtime.Caller(l.calldepth)
