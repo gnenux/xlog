@@ -68,14 +68,29 @@ func (l Logger) format(lc logContent) []byte {
 
 	buf.WriteString(strconv.Itoa(year))
 	buf.WriteByte('/')
+	if month < 10 {
+		buf.WriteByte('0')
+	}
 	buf.WriteString(strconv.Itoa(int(month)))
 	buf.WriteByte('/')
+	if day < 10 {
+		buf.WriteByte('0')
+	}
 	buf.WriteString(strconv.Itoa(day))
 	buf.WriteByte(' ')
+	if hour < 10 {
+		buf.WriteByte('0')
+	}
 	buf.WriteString(strconv.Itoa(hour))
 	buf.WriteByte(':')
+	if min < 10 {
+		buf.WriteByte('0')
+	}
 	buf.WriteString(strconv.Itoa(min))
 	buf.WriteByte(':')
+	if sec < 10 {
+		buf.WriteByte('0')
+	}
 	buf.WriteString(strconv.Itoa(sec))
 	buf.WriteByte(' ')
 	buf.WriteByte('[')
@@ -101,7 +116,7 @@ func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	l.prefix = prefix
 	l.flag = flag
 	l.out = out
-	l.calldepth = 2
+	l.calldepth = 3
 	l.buffer = make(chan logContent, defaultBufferSize)
 
 	go l.write()
@@ -187,7 +202,13 @@ func (l Logger) Panic(v ...interface{}) {
 
 func (l Logger) Panicf(format string, v ...interface{}) {
 	l.output(levelPanic, format, v...)
-	s := fmt.Sprintf(format, v...)
+
+	var s string
+	if format == "" {
+		s = fmt.Sprint(v...)
+	} else {
+		s = fmt.Sprintf(format, v...)
+	}
 	panic(s)
 }
 
