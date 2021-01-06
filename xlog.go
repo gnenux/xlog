@@ -57,7 +57,12 @@ type Logger struct {
 	flag      int
 	calldepth int
 	out       io.Writer
+	f         *os.File
 	buffer    chan logContent
+
+	fileName  string
+	dayChange chan bool
+	curDay    int
 }
 
 // time | level | file | msg
@@ -65,6 +70,11 @@ func (l Logger) format(lc logContent) []byte {
 	buf := bytes.Buffer{}
 	year, month, day := lc.t.Date()
 	hour, min, sec := lc.t.Clock()
+
+	if day != l.curDay {
+		l.curDay = day
+		l.dayChange <- true
+	}
 
 	buf.WriteString(strconv.Itoa(year))
 	buf.WriteByte('/')
@@ -119,17 +129,66 @@ func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	l.calldepth = 3
 	l.buffer = make(chan logContent, defaultBufferSize)
 
+	l.curDay = time.Now().Day()
+	l.dayChange = make(chan bool)
 	go l.write()
+	go l.changeFileByDay()
 	return l
 }
 
 func NewLoggerFromFile(logFile string, prefix string, flag int) *Logger {
-	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+	nowLogFile := logFile + "." + formatTime(time.Now())
+	f, err := createFile(nowLogFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return NewLogger(f, prefix, flag)
+	l := NewLogger(f, prefix, flag)
+	l.fileName = logFile
+	l.f = f
+
+	if err := os.Symlink(nowLogFile, logFile); err != nil {
+		log.Fatal(err)
+	}
+
+	return l
+}
+
+func (l *Logger) changeFileByDay() {
+	for {
+		select {
+		case ok := <-l.dayChange:
+			if ok && l.f != nil {
+
+				// 新建一个文件
+				nowLogFile := l.fileName + "." + formatTime(time.Now())
+				f, err := createFile(nowLogFile)
+				if err != nil {
+					l.Error(err)
+					continue
+				}
+				oldF := l.f
+				l.out = f
+				l.f = f
+
+				if oldF != nil {
+					oldF.Close()
+				}
+				// 建立连接
+				if err := os.Symlink(nowLogFile, l.fileName); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+func formatTime(t time.Time) string {
+	return fmt.Sprintf("%4d%2d%2d", t.Year(), t.Month(), t.Day())
+}
+
+func createFile(filePath string) (*os.File, error) {
+	return os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 }
 
 func (l *Logger) write() {
