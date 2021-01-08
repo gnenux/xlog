@@ -25,11 +25,24 @@ import (
 const (
 	// DefaultLogFlag = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 	DefaultLogFlag = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
+	levelDebug     = "debug"
 	levelWarn      = "warn"
 	levelInfo      = "info"
 	levelError     = "error"
 	levelFatal     = "fatal"
 	levelPanic     = "panic"
+)
+
+//LogLevel log level
+type LogLevel int
+
+const (
+	LevelDebug LogLevel = iota
+	LevelInfo
+	LevelWarn
+	LevelError
+	LevelPanic
+	LevelFatal
 )
 
 var (
@@ -39,13 +52,13 @@ var (
 )
 
 func init() {
-	defaultXLogger = NewLogger(os.Stdout, "", DefaultLogFlag)
+	defaultXLogger = NewLogger(os.Stdout, Options{})
 	defaultXLogger.calldepth = 3
 }
 
 type logContent struct {
 	t      time.Time
-	level  string
+	level  LogLevel
 	file   string
 	line   int
 	format string
@@ -53,6 +66,7 @@ type logContent struct {
 }
 
 type Logger struct {
+	level     LogLevel
 	prefix    string
 	flag      int
 	calldepth int
@@ -104,7 +118,22 @@ func (l Logger) format(lc logContent) []byte {
 	buf.WriteString(strconv.Itoa(sec))
 	buf.WriteByte(' ')
 	buf.WriteByte('[')
-	buf.WriteString(lc.level)
+
+	switch lc.level {
+	case LevelDebug:
+		buf.WriteString(levelDebug)
+	case LevelInfo:
+		buf.WriteString(levelInfo)
+	case LevelWarn:
+		buf.WriteString(levelWarn)
+	case LevelError:
+		buf.WriteString(levelError)
+	case LevelPanic:
+		buf.WriteString(levelPanic)
+	case LevelFatal:
+		buf.WriteString(levelFatal)
+	}
+
 	buf.WriteByte(']')
 	buf.WriteByte(' ')
 	buf.WriteString(lc.file)
@@ -120,11 +149,17 @@ func (l Logger) format(lc logContent) []byte {
 	return buf.Bytes()
 }
 
+type Options struct {
+	Prefix string
+	Level  LogLevel
+}
+
 // NewLogger is similar to log.New(out io.Writer, prefix string, flag int)
-func NewLogger(out io.Writer, prefix string, flag int) *Logger {
+func NewLogger(out io.Writer, opts Options) *Logger {
 	l := new(Logger)
-	l.prefix = prefix
-	l.flag = flag
+	l.prefix = opts.Prefix
+	// l.flag = flag
+	l.level = opts.Level
 	l.out = out
 	l.calldepth = 3
 	l.buffer = make(chan logContent, defaultBufferSize)
@@ -136,14 +171,14 @@ func NewLogger(out io.Writer, prefix string, flag int) *Logger {
 	return l
 }
 
-func NewLoggerFromFile(logFile string, prefix string, flag int) *Logger {
+func NewLoggerFromFile(logFile string, opts Options) *Logger {
 	nowLogFile := logFile + "." + formatTime(time.Now())
 	f, err := createFile(nowLogFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	l := NewLogger(f, prefix, flag)
+	l := NewLogger(f, opts)
 	l.fileName = logFile
 	l.f = f
 
@@ -197,9 +232,9 @@ func (l *Logger) write() {
 		case lc := <-l.buffer:
 			logBytes := l.format(lc)
 			l.out.Write(logBytes)
-			if lc.level == levelFatal {
+			if lc.level == LevelFatal {
 				os.Exit(1)
-			} else if lc.level == levelPanic {
+			} else if lc.level == LevelPanic {
 				var s string
 				if lc.format == "" {
 					s = fmt.Sprint(lc.v...)
@@ -212,7 +247,11 @@ func (l *Logger) write() {
 	}
 }
 
-func (l *Logger) output(level string, format string, v ...interface{}) {
+func (l *Logger) output(level LogLevel, format string, v ...interface{}) {
+	if level < l.level {
+		return
+	}
+
 	t := time.Now()
 	_, file, line, ok := runtime.Caller(l.calldepth)
 	if !ok {
@@ -229,12 +268,24 @@ func (l *Logger) output(level string, format string, v ...interface{}) {
 	}
 }
 
+func (l *Logger) SetLogLevel(level LogLevel) {
+	l.level = level
+}
+
+func (l *Logger) Debug(v ...interface{}) {
+	l.Debugf("", v...)
+}
+
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	l.output(LevelDebug, format, v...)
+}
+
 func (l *Logger) Warn(v ...interface{}) {
 	l.Warnf("", v...)
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
-	l.output(levelWarn, format, v...)
+	l.output(LevelWarn, format, v...)
 }
 
 func (l Logger) Info(v ...interface{}) {
@@ -242,7 +293,7 @@ func (l Logger) Info(v ...interface{}) {
 }
 
 func (l Logger) Infof(format string, v ...interface{}) {
-	l.output(levelInfo, format, v...)
+	l.output(LevelInfo, format, v...)
 }
 
 func (l Logger) Error(v ...interface{}) {
@@ -250,7 +301,7 @@ func (l Logger) Error(v ...interface{}) {
 }
 
 func (l Logger) Errorf(format string, v ...interface{}) {
-	l.output(levelError, format, v...)
+	l.output(LevelError, format, v...)
 }
 
 func (l Logger) Fatal(v ...interface{}) {
@@ -258,7 +309,7 @@ func (l Logger) Fatal(v ...interface{}) {
 }
 
 func (l Logger) Fatalf(format string, v ...interface{}) {
-	l.output(levelFatal, format, v...)
+	l.output(LevelFatal, format, v...)
 }
 
 func (l Logger) Panic(v ...interface{}) {
@@ -266,7 +317,15 @@ func (l Logger) Panic(v ...interface{}) {
 }
 
 func (l Logger) Panicf(format string, v ...interface{}) {
-	l.output(levelPanic, format, v...)
+	l.output(LevelPanic, format, v...)
+}
+
+func Debug(v ...interface{}) {
+	defaultXLogger.Debug(v...)
+}
+
+func Debugf(format string, v ...interface{}) {
+	defaultXLogger.Debugf(format, v...)
 }
 
 func Warn(v ...interface{}) {
@@ -275,14 +334,6 @@ func Warn(v ...interface{}) {
 
 func Warnf(format string, v ...interface{}) {
 	defaultXLogger.Warnf(format, v...)
-}
-
-func Info(v ...interface{}) {
-	defaultXLogger.Info(v...)
-}
-
-func Infof(format string, v ...interface{}) {
-	defaultXLogger.Infof(format, v...)
 }
 
 func Error(v ...interface{}) {
