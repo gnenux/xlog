@@ -197,6 +197,17 @@ func (l *Logger) write() {
 		case lc := <-l.buffer:
 			logBytes := l.format(lc)
 			l.out.Write(logBytes)
+			if lc.level == levelFatal {
+				os.Exit(1)
+			} else if lc.level == levelPanic {
+				var s string
+				if lc.format == "" {
+					s = fmt.Sprint(lc.v...)
+				} else {
+					s = fmt.Sprintf(lc.format, lc.v...)
+				}
+				panic(s)
+			}
 		}
 	}
 }
@@ -248,7 +259,6 @@ func (l Logger) Fatal(v ...interface{}) {
 
 func (l Logger) Fatalf(format string, v ...interface{}) {
 	l.output(levelFatal, format, v...)
-	os.Exit(1)
 }
 
 func (l Logger) Panic(v ...interface{}) {
@@ -257,14 +267,6 @@ func (l Logger) Panic(v ...interface{}) {
 
 func (l Logger) Panicf(format string, v ...interface{}) {
 	l.output(levelPanic, format, v...)
-
-	var s string
-	if format == "" {
-		s = fmt.Sprint(v...)
-	} else {
-		s = fmt.Sprintf(format, v...)
-	}
-	panic(s)
 }
 
 func Warn(v ...interface{}) {
