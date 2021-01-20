@@ -189,6 +189,10 @@ func NewLoggerFromFile(logFile string, opts Options) *Logger {
 	return l
 }
 
+func (l *Logger) AddCalldepth(num int) {
+	l.calldepth += num
+}
+
 func (l *Logger) changeFileByDay() {
 	for {
 		select {
