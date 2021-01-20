@@ -145,6 +145,7 @@ func (l Logger) format(lc logContent) []byte {
 	} else {
 		buf.WriteString(fmt.Sprintf(lc.format, lc.v...))
 	}
+	buf.WriteByte('\n')
 
 	return buf.Bytes()
 }
