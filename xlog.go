@@ -19,6 +19,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -74,14 +75,18 @@ type Logger struct {
 	f         *os.File
 	buffer    chan logContent
 
-	fileName  string
-	dayChange chan bool
-	curDay    int
+	fileName   string
+	dayChange  chan bool
+	curDay     int
+	bufferPool *sync.Pool
 }
 
 // time | level | file | msg
 func (l Logger) format(lc logContent) []byte {
-	buf := bytes.Buffer{}
+	buf := l.bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer l.bufferPool.Put(buf)
+
 	year, month, day := lc.t.Date()
 	hour, min, sec := lc.t.Clock()
 
@@ -164,6 +169,11 @@ func NewLogger(out io.Writer, opts Options) *Logger {
 	l.out = out
 	l.calldepth = 3
 	l.buffer = make(chan logContent, defaultBufferSize)
+	l.bufferPool = &sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
 
 	l.curDay = time.Now().Day()
 	l.dayChange = make(chan bool)
