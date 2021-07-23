@@ -194,6 +194,10 @@ func NewLoggerFromFile(logFile string, opts Options) *Logger {
 	l.fileName = logFile
 	l.f = f
 
+	fi, _ := os.Stat(logFile)
+	if fi != nil {
+		os.Remove(logFile)
+	}
 	if err := os.Symlink(filepath.Base(nowLogFile), logFile); err != nil {
 		log.Fatal(err)
 	}
@@ -224,6 +228,11 @@ func (l *Logger) changeFileByDay() {
 
 				if oldF != nil {
 					oldF.Close()
+				}
+
+				fi, _ := os.Stat(l.fileName)
+				if fi != nil {
+					os.Remove(l.fileName)
 				}
 				// 建立连接
 				if err := os.Symlink(filepath.Base(nowLogFile), l.fileName); err != nil {
