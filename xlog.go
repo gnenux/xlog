@@ -17,6 +17,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -193,7 +194,7 @@ func NewLoggerFromFile(logFile string, opts Options) *Logger {
 	l.fileName = logFile
 	l.f = f
 
-	if err := os.Symlink(nowLogFile, logFile); err != nil {
+	if err := os.Symlink(filepath.Base(nowLogFile), logFile); err != nil {
 		log.Fatal(err)
 	}
 
@@ -225,7 +226,7 @@ func (l *Logger) changeFileByDay() {
 					oldF.Close()
 				}
 				// 建立连接
-				if err := os.Symlink(nowLogFile, l.fileName); err != nil {
+				if err := os.Symlink(filepath.Base(nowLogFile), l.fileName); err != nil {
 					log.Fatal(err)
 				}
 			}
