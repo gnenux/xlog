@@ -234,7 +234,7 @@ func (l *Logger) changeFileByDay() {
 }
 
 func formatTime(t time.Time) string {
-	return fmt.Sprintf("%4d%2d%2d", t.Year(), t.Month(), t.Day())
+	return fmt.Sprintf("%04d%02d%02d", t.Year(), t.Month(), t.Day())
 }
 
 func createFile(filePath string) (*os.File, error) {
